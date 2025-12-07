@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@tailwind utilities;
+
+:root {
+  --blood-primary: #c60c0c;
+  --blood-secondary: #180101;
+
+  --color-lighttheme-light: aliceblue;
+  --color-lighttheme-dark: #180101;
+}
+
+@font-face {
+  font-family: 'horror';
+  src: url('/horror.ttf');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'bloodstained';
+  src: url('/bloodstain.ttf');
+}
+
+.science-gothic {
+  font-family: 'Science Gothic', sans-serif;
+  font-optical-sizing: auto;
+  font-weight: normal;
+  font-style: normal;
+  font-variation-settings:
+    'slnt' 0,
+    'wdth' 100,
+    'CTRS' 0;
+}
+
+.horror {
+font-family: 'horror';
+}
