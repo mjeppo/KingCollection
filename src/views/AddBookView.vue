@@ -1,7 +1,7 @@
 <script setup>
 import HeaderComponent from '@/components/HeaderComponent.vue'
 import { ref, computed } from 'vue'
-import { supabase } from '@/supabase' // Voor de database call
+import pb from '@/lib/pocketbase'
 import { useRouter } from 'vue-router' // Voor navigatie na opslaan
 import useAuth from '@/composables/useAuth' // Optioneel: om de gebruiker te checken
 import { useToast } from 'vue-toastification'
@@ -58,23 +58,39 @@ const finalCoverUrl = computed(() => {
   }
 })
 
+let vandaanGekomen = '/'; // Standaard fallback
+
+router.beforeEach((to, from) => {
+  if (to.path === '/boek-toevoegen') {
+    vandaanGekomen = from.fullPath;
+    console.log("Ik kwam hiervandaan:", vandaanGekomen);
+  }
+});
+
 async function handleSubmit() {
   // 1. Validatie (basis)
+  console.log('opslaan...')
   if (!isAuthenticated.value) {
     saveError.value = 'U moet ingelogd zijn om een boek toe te voegen.'
     return
   }
   if (!titelInput.value || !auteurInput.value || !jaarInput.value) {
     saveError.value = 'Titel, Auteur en Jaar van uitgave zijn verplicht.'
+    if (!titelInput.value) {
+      toast.error('Vul de titel in.')
+    } else if (!auteurInput.value) {
+      toast.error('Vul de auteur in.')
+    } else if (!jaarInput.value) {
+      toast.error('Vul het jaar van uitgave in.')
+    }
     return
   }
 
   isSaving.value = true
   saveError.value = null
 
-  // 2. Data opstellen voor Supabase
+  // 2. Data opstellen
   const nieuwBoek = {
-    // Zorg dat de sleutels (links) EXCACT overeenkomen met je Supabase kolomnamen!
     titel: titelInput.value,
     auteur: auteurInput.value,
     serie: serieInput.value || null, // Gebruik null voor lege velden (of lege string)
@@ -85,6 +101,21 @@ async function handleSubmit() {
   }
 
   // 3. Schrijf naar de database
+
+  // * Nieuwe pocketbase functie
+  try {
+    await pb.collection('boeken').create(nieuwBoek)
+    toast.success(`Boek "${nieuwBoek.titel}" succesvol toegoevoegd!`)
+    router.push(vandaanGekomen);
+  } catch (error) {
+    toast.error('Fout bij toevoegen boek. Zie console voor foutmelding.')
+    console.log('Fout bij opslaan: ', error)
+    saveError.value = 'Fout bij opslaan: ' + (error.message || 'Controleer de velden.')
+  } finally {
+    isSaving.value = false
+  }
+
+  /* // ^ Oude supabase functie
   const { error } = await supabase
     .from('boeken') // De naam van je tabel
     .insert([nieuwBoek])
@@ -102,6 +133,8 @@ async function handleSubmit() {
     // Na succesvolle invoer, navigeer terug naar de lijst
     router.push('/')
   }
+
+  */
 }
 </script>
 
@@ -117,7 +150,7 @@ async function handleSubmit() {
           </button>
         </div>
         <div class="text-xl my-2 w-full">
-          <label for="boek-titel" class="mr-2 w-[250px]">Titel :</label>
+          <label for="boek-titel" class="mr-2 w-[250px]">* Titel :</label>
           <input
             type="text"
             id="boek-titel"
@@ -127,7 +160,7 @@ async function handleSubmit() {
           />
         </div>
         <div class="text-xl my-2">
-          <label for="boek-auteur" class="mr-2 w-[250px]">Auteur(s) :</label>
+          <label for="boek-auteur" class="mr-2 w-[250px]">* Auteur(s) :</label>
           <input
             type="text"
             id="boek-auteur"
@@ -137,7 +170,7 @@ async function handleSubmit() {
           />
         </div>
         <div class="text-xl my-2">
-          <label for="boek-auteur" class="w-[250px] mr-2">Jaar van uitgave :</label>
+          <label for="boek-auteur" class="w-[250px] mr-2">* Jaar van uitgave :</label>
           <input
             type="text"
             id="boek-auteur"

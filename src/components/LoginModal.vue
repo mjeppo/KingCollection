@@ -1,6 +1,7 @@
 <template>
   <div v-if="isVisible" class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-content bg-white p-6 rounded-lg shadow-2xl w-11/12 max-w-sm science-gothic">
+      <img src="/public/pennywise.gif">
       <h2 class="text-2xl font-bold mb-4">Beheerder Login</h2>
 
       <form @submit.prevent="handleLogin">
@@ -66,10 +67,8 @@ const handleLogin = async () => {
   if (error) {
     // Toon de foutmelding als de login mislukt
     loginError.value = error.message || 'Onbekende fout bij inloggen.';
-    toast.error('Onbekende fout bij inloggen.' + error.message)
+    toast.error('Onbekende fout bij inloggen.' + loginError.value)
   } else {
-    // Als de login succesvol is, sluit de modal
-
     emit('close');
     toast.success("Je bent succesvol ingelogd! Welkom!")
     email.value = '';

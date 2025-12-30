@@ -21,7 +21,21 @@ const router = createRouter({
       name: 'edit-book',
       component: EditBookView,
     },
+    {
+      path: '/gallery',
+      name: 'Gallery',
+      component: () => import('../views/CoverGridView.vue'),
+    },
   ],
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      // Als de gebruiker teruggaat, gebruik de opgeslagen positie
+      return savedPosition;
+    } else {
+      // Anders, ga naar boven
+      return { top: 0 };
+    }
+  },
 })
 
 export default router

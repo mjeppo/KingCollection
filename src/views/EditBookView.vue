@@ -1,11 +1,11 @@
 <script setup>
 import HeaderComponent from '@/components/HeaderComponent.vue'
 import { ref, computed, onMounted } from 'vue' // <-- onMounted toegevoegd
-import { supabase } from '@/supabase'
 import { useRoute, useRouter } from 'vue-router' // <-- useRoute toegevoegd
 import useAuth from '@/composables/useAuth'
 import { useToast } from 'vue-toastification'
 import DeleteConfirmModal from '@/components/DeleteConfirmModal.vue'
+import pb from '@/lib/pocketbase'
 
 const route = useRoute() // <-- Nieuw: Om ID op te halen
 const router = useRouter()
@@ -31,7 +31,7 @@ const toast = useToast()
 const saveError = ref(null)
 const isSaving = ref(false)
 const isVerwijderen = ref(false) // <-- Nieuw: Status voor verwijderen
-const isConfirmModalVisible = ref(false);
+const isConfirmModalVisible = ref(false)
 
 // De standaard URL die gebruikt wordt als het inputveld leeg is
 const DEFAULT_IMAGE_URL =
@@ -41,8 +41,6 @@ const DEFAULT_IMAGE_URL =
 const urlRegex = /^(http|https):\/\/[^ "]+$/
 const finalCoverUrl = computed(() => {
   const input = coverUrlInput.value.trim()
-
-
 
   if (input.length === 0) {
     return { isValid: true, url: DEFAULT_IMAGE_URL, message: 'Standaard cover geladen.' }
@@ -63,10 +61,35 @@ async function fetchBoekVoorBewerking() {
   laadFout.value = null
 
   if (!isAuthenticated.value) {
-    toast.error("Je moet ingelogd zijn om te bewerken.")
-    router.push('/')
+    toast.error('Je moet ingelogd zijn om te bewerken.')
+    router.back()
     return
   }
+
+  // * Nieuwe pocketbase functie
+  try {
+    // Haal één specifiek record op via de ID
+    const data = await pb.collection('boeken').getOne(boekId)
+
+    if (data) {
+      boekGegevens.value = data
+      titelInput.value = data.titel || ''
+      auteurInput.value = data.auteur || ''
+      serieInput.value = data.serie || ''
+      jaarInput.value = data.jaar_van_uitgave ? String(data.jaar_van_uitgave) : ''
+      origineleTitelInput.value = data.originele_titel || ''
+      taalInput.value = data.taal || 'Nederlands'
+      coverUrlInput.value = data.cover_url || ''
+      zoekTerm = data.auteur + '+' + data.titel
+      console.log(zoekTerm)
+      // zoekTerm hoeft geen reactive ref te zijn als je het direct gebruikt
+    }
+  } catch (error) {
+    console.error('Laadfout:', error)
+    laadFout.value = 'Boek niet gevonden of geen toegang.'
+  }
+
+  /* //^ Oude supabase functie
 
   // We gebruiken .single() omdat we slechts één boek verwachten
   const { data, error } = await supabase.from('boeken').select('*').eq('id', boekId).single()
@@ -92,6 +115,8 @@ async function fetchBoekVoorBewerking() {
   } else {
     laadFout.value = 'Boek niet gevonden.'
   }
+
+  */
 }
 
 // Haal data op zodra de component laadt
@@ -127,6 +152,26 @@ async function handleUpdate() {
     cover_url: finalCoverUrl.value.url, // Gebruik de correcte kolomnaam
   }
 
+  // * Nieuwe pocketbase functie
+  try {
+    // Eerste argument is de ID, tweede is het object met nieuwe data
+    await pb.collection('boeken').update(boekId, bijgewerkteGegevens)
+
+    toast.success('Boek succesvol bijgewerkt! 🎉')
+    if (window.history.length > 1) {
+      router.back()
+    } else {
+      router.push('/')
+    }
+  } catch (error) {
+    console.error('Fout bij het opslaan:', error)
+    toast.error('Fout bij het opslaan. Zie de console.')
+    saveError.value = 'Fout bij opslaan: ' + (error.message || 'Controleer de velden.')
+  } finally {
+    isSaving.value = false
+  }
+
+  /* //^ Oude supabase functie
   // UPDATE in plaats van INSERT en gebruik .eq('id', boekId)
   const { error } = await supabase
     .from('boeken')
@@ -143,10 +188,11 @@ async function handleUpdate() {
     toast.success("Boek succesvol bijgewerkt! 🎉");
     router.push('/')
   }
+    */
 }
 
 function zoekCover() {
-  let query = zoekTerm.replace(' ', '+')
+  let query = zoekTerm.replace(' ', '+').replace('&', '+') + '+cover'
   let url = zoekUrl + query
 
   console.log(query, url)
@@ -155,38 +201,36 @@ function zoekCover() {
 
 // Functie om de modal te tonen
 function askForDeleteConfirmation() {
-    if (!isVerwijderen.value) {
-        isConfirmModalVisible.value = true;
-    }
+  if (!isVerwijderen.value) {
+    isConfirmModalVisible.value = true
+  }
 }
 
 async function executeDelete() {
-    // Sluit eerst de modal als hij nog open is
-    isConfirmModalVisible.value = false;
+  // Sluit eerst de modal als hij nog open is
+  isConfirmModalVisible.value = false
 
-    if (!isAuthenticated.value) return;
+  if (!isAuthenticated.value) return
 
-    isVerwijderen.value = true;
-    saveError.value = null;
+  isVerwijderen.value = true
+  saveError.value = null
 
-    const { error } = await supabase
-        .from('boeken')
-        .delete()
-        .eq('id', boekId); // Verwijder de rij met deze ID
+  try {
+    // In PocketBase gebruiken we simpelweg .delete(id)
+    await pb.collection('boeken').delete(boekId)
 
-    isVerwijderen.value = false;
-
-    if (error) {
-        saveError.value = 'Fout bij het verwijderen van het boek: ' + error.message;
-        console.error(error);
-        // Gebruik eventueel je toast hier: toast.error('Verwijdering mislukt...');
-    } else {
-        // Gebruik eventueel je toast hier: toast.success('Boek verwijderd!');
-        alert('Boek succesvol verwijderd.');
-        router.push('/');
-    }
+    // Als we hier komen, is het gelukt
+    toast.success('Boek succesvol verwijderd. 👋')
+    router.back()
+  } catch (error) {
+    // PocketBase errors vangen we op in het catch blok
+    saveError.value = 'Fout bij het verwijderen van het boek: ' + error.message
+    console.error('Verwijderfout:', error)
+    toast.error('Verwijdering mislukt...')
+  } finally {
+    isVerwijderen.value = false
+  }
 }
-
 </script>
 
 <template>
@@ -292,6 +336,7 @@ async function executeDelete() {
           <label for="boek-cover-url" class="col-span-3">Cover :</label>
           <textarea
             type="text"
+            rows="5"
             id="boek-cover-url"
             class="p-1 col-span-6 resize-y rounded border-2 border-(--blood-primary) text-sm!"
             placeholder="Url boekomslag"
@@ -311,12 +356,21 @@ async function executeDelete() {
         <div class="text-xl">
           <label for="boek-voorbeeld-cover" class="mr-2 w-[250px]">Voorbeeld cover :</label>
           <div class="p-1">
-            <img
-              :src="finalCoverUrl?.url"
-              alt="voorbeeld van cover"
-              id="boek-voorbeeld-cover"
-              class="w-[250px] border-2 border-(--blood-primary)! rounded p-1"
-            />
+            <a
+              :href="finalCoverUrl?.url"
+              target="_blank"
+              v-if="finalCoverUrl?.url"
+              title="Bekijk afbeelding via url"
+            >
+              <img
+                :src="finalCoverUrl?.url"
+                :alt="titelInput"
+                class="modal-cover"
+                @error="
+                  (e) => (e.target.src = 'https://placehold.jp/200x300.png?text=Fout+bij+laden')
+                "
+              />
+            </a>
             <p v-if="finalCoverUrl && !finalCoverUrl.isValid" class="text-sm text-red-600 mt-1">
               {{ finalCoverUrl.message }}
             </p>
@@ -343,7 +397,7 @@ async function executeDelete() {
     :boekAuteur="auteurInput"
     @close="isConfirmModalVisible = false"
     @confirm-delete="executeDelete"
-/>
+  />
 </template>
 
 <style>

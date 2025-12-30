@@ -1,57 +1,70 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { supabase } from '@/supabase'
 import BookDetailModal from './BookDetailModal.vue'
 import useAuth from '@/composables/useAuth' // <-- Nieuwe import
-import LoginModal from './LoginModal.vue' // <-- Nieuwe import
 import DeleteConfirmModal from '@/components/DeleteConfirmModal.vue'
 import { useToast } from 'vue-toastification'
+import pb from '@/lib/pocketbase'
+import { onActivated } from 'vue'
 
 const route = useRoute()
 
 const toast = useToast()
 
-// Functie om array te sorteren
-// const sortedBooks = (arr) => {
-//   arr.sort((a, b) => {
-//     const titelA = a.titel
-//     const titelB = b.titel
-
-//     if (titelA < titelB) {
-//       return -1
-//     }
-//     if (titelA > titelB) {
-//       return 1
-//     }
-
-//     return 0
-//   })
-
-//   return arr
-// }
-
 const boeken = ref([]) // Houdt de opgehaalde data vast
 
-async function fetchBoeken() {
-  // Gebruik .from() om je tabel te selecteren
-  // Gebruik .select() om de gewenste kolommen op te halen
-  const { data, error } = await supabase
-    .from('boeken') // <-- Gebruik hier de naam van je tabel
-    .select('*') // Haal alle kolommen op
-    .order('titel', { ascending: true }) // Sorteer optioneel
+/* //^ Oude ophaal functie voor Supabase
 
-  if (error) {
-    console.error('Fout bij het ophalen van boeken:', error)
-  } else {
-    boeken.value = data
-    // Nu kun je je filtering/sortering (filteredAndSortedBooks) hierop baseren
+// async function fetchBoeken() {
+//   // Gebruik .from() om je tabel te selecteren
+//   // Gebruik .select() om de gewenste kolommen op te halen
+//   const { data, error } = await supabase
+//     .from('boeken') // <-- Gebruik hier de naam van je tabel
+//     .select('*') // Haal alle kolommen op
+//     .order('titel', { ascending: true }) // Sorteer optioneel
+
+//   if (error) {
+//     console.error('Fout bij het ophalen van boeken:', error)
+//   } else {
+//     boeken.value = data
+//     // Nu kun je je filtering/sortering (filteredAndSortedBooks) hierop baseren
+//   }
+// }
+*/
+
+// * Nieuwe ophaal functie voor pocketbase
+async function fetchBoeken() {
+  try {
+    // In PocketBase gebruik je .collection() in plaats van .from()
+    // getFullList() haalt direct alle records op (zonder ingewikkelde selecties)
+    const records = await pb.collection('boeken').getFullList({
+      sort: '+titel', // Sorteer op titel (oplopend)
+    })
+
+    boeken.value = records
+    console.log('Boeken succesvol opgehaald:', records)
+  } catch (error) {
+    // PocketBase gooit een error (exception) als er iets misgaat
+    console.error('Fout bij het ophalen van boeken:', error.message)
   }
 }
 
 onMounted(() => {
   fetchBoeken()
 })
+
+onActivated(async () => {
+  console.log("Grid geactiveerd, data verversen...");
+
+  // Sluit eventuele openstaande modals (van een vorige sessie)
+  if (typeof isModalVisible.value !== 'undefined') {
+    isModalVisible.value = false;
+  }
+
+  // Haal de nieuwste lijst op van PocketBase
+  await fetchBoeken();
+});
 
 watch(
   () => route.name, // Kijk of de naam van de route verandert
@@ -68,21 +81,30 @@ watch(
 const searchTerm = ref('')
 
 const filteredAndSortedBooks = computed(() => {
+  console.log('Wat zit er in boeken.value?', boeken.value)
   // Gebruik de boeken.value die gevuld wordt door Supabase
   const rawList = boeken.value || [] // Zorg voor een lege array als 'boeken' nog niet geladen is
 
   // Eerst de lijst filteren.
   const filteredList = rawList.filter((book) => {
     // Zet beide naar kleine letters voor case-insensitive zoeken
-    const title = book.titel ? book.titel.toLowerCase() : '' // Voeg null-check toe
-    const search = searchTerm.value.toLowerCase()
+    const title = (book.titel || '').toLowerCase()
+    const search = (searchTerm.value || '').toLowerCase()
 
     // Controleer of de titel de zoekterm bevat
     return title.includes(search)
   })
 
   // Vervolgens sorteren
-  return filteredList
+  // 2. Sorteren (Alfabetisch, ongeacht hoofdletters)
+  // We maken een kopie met [...array] omdat .sort() de originele array aanpast
+  return [...filteredList].sort((a, b) => {
+    const titelA = (a.titel || '').toLowerCase()
+    const titelB = (b.titel || '').toLowerCase()
+
+    // localeCompare is de netste manier om tekst te vergelijken
+    return titelA.localeCompare(titelB, 'nl', { sensitivity: 'base' })
+  })
 })
 
 // OP FALSE ZETTEN
@@ -103,75 +125,79 @@ function hideDetails() {
   selectedBook.value = null // Opschonen na sluiten
 }
 
-// Het aantal boeken is nu het aantal in de gefilterde lijst
 const aantal = computed(() => filteredAndSortedBooks.value.length)
 
-// INLOG-Functies
-// 1. Gebruik de Auth Composable
-const { user, isAuthenticated, signOut } = useAuth()
+const { isAuthenticated } = useAuth()
 
-// 2. Modal Status
-const isLoginModalVisible = ref(false)
-
-// 3. Functies voor de Login Modal
-const openLoginModal = () => {
-  isLoginModalVisible.value = true
-}
-
-const closeLoginModal = () => {
-  isLoginModalVisible.value = false
-}
-
-const bookIdToDelete = ref(null);
-const bookTitleToDelete = ref('');
-const bookAuteurToDelete = ref('');
+const bookIdToDelete = ref(null)
+const bookTitleToDelete = ref('')
+const bookAuteurToDelete = ref('')
 
 const isVerwijderen = ref(false) // <-- Nieuw: Status voor verwijderen
 const isConfirmModalVisible = ref(false)
 
 function askForDeleteConfirmation(book) {
-  bookIdToDelete.value = book.id; // Bewaar de ID
-  bookTitleToDelete.value = book.titel; // Bewaar de Titel
-    bookAuteurToDelete.value = book.auteur
-    isConfirmModalVisible.value = true;
+  bookIdToDelete.value = book.id // Bewaar de ID
+  bookTitleToDelete.value = book.titel // Bewaar de Titel
+  bookAuteurToDelete.value = book.auteur
+  isConfirmModalVisible.value = true
 }
 
 async function executeDelete() {
- isConfirmModalVisible.value = false; // Sluit de modal
+  isConfirmModalVisible.value = false // Sluit de modal
 
-    if (!isAuthenticated.value || !bookIdToDelete.value) {
-        // Zorg dat we een ID hebben
-        return;
-    }
+  if (!isAuthenticated.value || !bookIdToDelete.value) {
+    return
+  }
 
-    isVerwijderen.value = true;
-    // ... (Hier gebruik je nu de opgeslagen ID) ...
-    const { error } = await supabase
-        .from('boeken')
-        .delete()
-        .eq('id', bookIdToDelete.value); // Gebruik de opgeslagen ID!
+  isVerwijderen.value = true
 
-    isVerwijderen.value = false;
+  // * Nieuwe pocketbase functie
+  try {
+    // In PocketBase is dit één simpele aanroep
+    await pb.collection('boeken').delete(bookIdToDelete.value)
 
-    if (error) {
-        toast.error('Er ging iets mis bij het verwijderen van "{{ book.title }}", probeer het opnieuw', error)
-    } else {
-        // Na succes:
-        // 1. Herlaad de lijst om het verwijderde boek te laten verdwijnen
-        fetchBoeken();
-        // 2. Ruim de opgeslagen ID op
-        bookIdToDelete.value = null;
-        bookTitleToDelete.value = '';
-        toast.success(`Boek "{{ book.title }}" succesvol verwijderd.` )
-    }
+    // Na succes:
+    fetchBoeken() // Herlaad je lijst
+    toast.success(`Boek "${bookTitleToDelete.value}" succesvol verwijderd.`)
+    bookIdToDelete.value = null
+    bookTitleToDelete.value = ''
+  } catch (error) {
+    console.error('Verwijderfout:', error)
+    toast.error('Er ging iets mis bij het verwijderen van {{ book.title }}, probeer het opnieuw.')
+  } finally {
+    isVerwijderen.value = false
+  }
+
+  /*// ^ Oude supabase functie
+  ... (Hier gebruik je nu de opgeslagen ID) ...
+  const { error } = await supabase.from('boeken').delete().eq('id', bookIdToDelete.value) // Gebruik de opgeslagen ID!
+
+  isVerwijderen.value = false
+  if (error) {
+    toast.error(
+      'Er ging iets mis bij het verwijderen van "{{ book.title }}", probeer het opnieuw',
+      error,
+    )
+  } else {
+    // Na succes:
+    // 1. Herlaad de lijst om het verwijderde boek te laten verdwijnen
+    fetchBoeken()
+    // 2. Ruim de opgeslagen ID op
+    bookIdToDelete.value = null
+    bookTitleToDelete.value = ''
+    toast.success(`Boek "{{ book.title }}" succesvol verwijderd.`)
+  }
+    */
 }
 </script>
 
 <template>
-  <div class="boekenlijst-container">
+  <div class="boekenlijst-container bg-(#fffce9)">
+    
     <div class="boekenlijst-titel-container">
       <div class="boekenlijst--titel">Boekenlijst</div>
-      <div class="aantal-boeken">Aantal boeken: {{ aantal }}</div>
+      <div class="aantal-boeken pr-7">Aantal boeken: {{ aantal }}</div>
     </div>
     <div class="zoekveld-element" id="input-search-element">
       <label for="zoekveld" class="horror">Zoek boek</label>
@@ -181,7 +207,11 @@ async function executeDelete() {
         id="zoekveld"
         v-model="searchTerm"
       />
-      <button class="knop-zoeken btn btn-danger" id="knop-zoeken" @click="searchTerm = ''">
+      <button
+        class="knop-zoeken btn btn-danger shadow-2xl shadow-red-800"
+        id="knop-zoeken"
+        @click="searchTerm = ''"
+      >
         WIS
       </button>
     </div>
@@ -196,56 +226,34 @@ async function executeDelete() {
       <div class="boekenlijst-titel" @click="showDetails(book)">{{ book.titel }}</div>
       <span class="boekenlijst-auteur">{{ book.auteur }} - {{ book.jaar_van_uitgave }}</span>
       <div v-if="isAuthenticated" class="flex items-center space-x-2">
-
-        <router-link
-            :to="{ name: 'edit-book', params: { id: book.id } }"
-            title="Boek aanpassen"
-        >
-            <i class="fa-regular fa-pen-to-square text-blue-600 ml-4" ></i>
+        <router-link :to="{ name: 'edit-book', params: { id: book.id } }" title="Boek aanpassen">
+          <i class="fa-regular fa-pen-to-square text-blue-600 ml-4"></i>
         </router-link>
 
         <button
-            @click.prevent="askForDeleteConfirmation(book)"
-            title="Boek verwijderen"
-            class="text-red-700 hover:text-red-900"
-            :disabled="isVerwijderen"
+          @click.prevent="askForDeleteConfirmation(book)"
+          title="Boek verwijderen"
+          class="text-red-700 hover:text-red-900"
+          :disabled="isVerwijderen"
         >
-            <i class="fa-regular fa-trash-can"></i>
+          <i class="fa-regular fa-trash-can"></i>
         </button>
-    </div>
-
+      </div>
     </div>
   </div>
   <BookDetailModal :isVisible="isModalVisible" :book="selectedBook" @close="hideDetails" />
 
-  <div class="boekenlijst-container">
-    <div class="auth-controls flex justify-end mb-4">
-      <div v-if="isAuthenticated" class="flex items-center space-x-2">
-        <span class="text-sm text-gray-600">Welkom, {{ user.email }}</span>
-        <button @click="$router.push('/add')" class="btn bg-blue-600 text-white p-2 rounded">
-          Boek Toevoegen
-        </button>
-        <button @click="signOut" class="btn bg-red-600 text-white p-2 rounded">Uitloggen</button>
-      </div>
 
-      <button v-else @click="openLoginModal" class="btn bg-green-600 text-white p-2 rounded">
-        Beheerder Login
-      </button>
-    </div>
-
-    <LoginModal :isVisible="isLoginModalVisible" @close="closeLoginModal" />
-  </div>
-  <button @click="fetchBoeken" class="btn btn-primary">Test ophalen</button>
 
   <DeleteConfirmModal
     :isVisible="isConfirmModalVisible"
-  :boekTitel="bookTitleToDelete"
-  :boekAuteur="bookAuteurToDelete"
+    :boekTitel="bookTitleToDelete"
+    :boekAuteur="bookAuteurToDelete"
     @close="isConfirmModalVisible = false"
     @confirm-delete="executeDelete"
-/>
+  />
 
-<!--
+  <!--
 :boekTitel="${book.titel}"
     :boekAuteur="book.auteur"
     -->

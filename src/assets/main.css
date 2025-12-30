@@ -7,6 +7,8 @@
 
   --color-lighttheme-light: aliceblue;
   --color-lighttheme-dark: #180101;
+
+  --blood-glow: rgba(198, 12, 12, 0.922)
 }
 
 @font-face {
@@ -21,6 +23,7 @@
   src: url('/bloodstain.ttf');
 }
 
+
 .science-gothic {
   font-family: 'Science Gothic', sans-serif;
   font-optical-sizing: auto;
@@ -34,4 +37,16 @@
 
 .horror {
 font-family: 'horror';
+}
+
+.penny-wise-header {
+  position: fixed;
+  right: 0;
+  width: 12.5%;
+}
+
+@media only screen and (max-width: 875px) {
+  .penny-wise-header {
+    display: none;
+  }
 }

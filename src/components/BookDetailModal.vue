@@ -1,32 +1,31 @@
 <script setup>
-import { defineProps, defineEmits } from 'vue';
-import { useRouter } from 'vue-router';
+import { defineProps, defineEmits } from 'vue'
+import { useRouter } from 'vue-router'
 
 // Definitie van de Props (data die van de ouder-component komt)
 const { isVisible, book } = defineProps({
   isVisible: {
     type: Boolean,
-    required: true
+    required: true,
   },
   book: {
     type: Object, // Verwacht een boek-object
-    default: null
-  }
-});
+    default: null,
+  },
+})
 
 const router = useRouter()
 
 // Definitie van de Events (om de modal te sluiten)
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close'])
 
 function closeModal() {
-    emit('close');
+  emit('close')
 }
 
 const navigateToEditBook = () => {
-  router.push(`/boek-aanpassen/${book.id}`);
+  router.push(`/boek-aanpassen/${book.id}`)
 }
-
 
 // console.log(props, emit)
 </script>
@@ -34,8 +33,9 @@ const navigateToEditBook = () => {
 <template>
   <div v-if="isVisible" class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-content">
-
-      <button class="close-button" @click="closeModal()"><i class="fa-solid fa-circle-xmark fa-xl" style="color: var(--blood-primary)"></i></button>
+      <button class="close-button" @click="closeModal()">
+        <i class="fa-solid fa-circle-xmark fa-xl" style="color: var(--blood-primary)"></i>
+      </button>
 
       <div v-if="book">
         <h2>{{ book.titel }}</h2>
@@ -44,19 +44,36 @@ const navigateToEditBook = () => {
         <p v-if="book.serie">Serie / verhalen: {{ book.serie }}</p>
         <p>Taal : {{ book.taal }}</p>
         <p>Originele titel: {{ book.originele_titel }}</p>
-        <img :src="book.cover_url" :alt="book.titel" class="modal-cover">
-        <div >
-          <button class="btn btn-primary bg-(--blood-primary)! border-0" @click="navigateToEditBook">Aanpassen</button>
+        <a
+          :href="book.cover_url"
+          target="_blank"
+          v-if="book.cover_url"
+          title="Bekijk afbeelding via url"
+        >
+          <img
+            :src="book.cover_url"
+            :alt="book.titel"
+            class="modal-cover"
+            @error="
+              (e) => (e.target.src = 'https://placehold.jp/200x300.png?text=Fout+bij+laden')
+            "
+          />
+        </a>
+        <div>
+          <button
+            class="btn btn-primary bg-(--blood-primary)! border-0"
+            @click="navigateToEditBook"
+          >
+            Aanpassen
+          </button>
         </div>
-        </div>
+      </div>
       <div v-else>
         <p>Geen boekdetails beschikbaar.</p>
       </div>
     </div>
   </div>
 </template>
-
-
 
 <style scoped>
 .modal-overlay {

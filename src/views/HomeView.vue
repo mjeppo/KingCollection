@@ -6,7 +6,7 @@ import KingLijst from '@/components/KingLijst.vue';
 </script>
 
 <template>
-  <main>
+  <main class="bg-[#fffce9]">
     <HeaderComponent />
     <KingLijst />
   </main>
