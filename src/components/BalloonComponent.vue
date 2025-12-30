@@ -28,7 +28,7 @@ const balloonStyle = computed(() => ({
 <style scoped>
 .balloon {
   position: fixed;
-  z-index: 999;
+  z-index: -1;
   user-select: none;
   pointer-events: none;
   animation: floatUp linear forwards;

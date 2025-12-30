@@ -88,13 +88,10 @@ const navigateToAddBook = () => {
 .titel-img {
   filter: drop-shadow(0 4px 5px var(--blood-glow));
   border-radius: 5px;
+  min-width: 50px;
 }
 
-@media (max-width: 600px) {
-  .titel-img {
-    width: 300px;
-  }
-}
+
 
 .nav-btn {
   padding: 8px 15px;
