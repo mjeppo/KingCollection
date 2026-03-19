@@ -1,5 +1,4 @@
 <script setup>
-import { defineProps, defineEmits } from 'vue'
 import { useRouter } from 'vue-router'
 
 // Definitie van de Props (data die van de ouder-component komt)

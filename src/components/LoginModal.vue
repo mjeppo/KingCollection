@@ -1,7 +1,7 @@
 <template>
   <div v-if="isVisible" class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-content bg-white p-6 rounded-lg shadow-2xl w-11/12 max-w-sm science-gothic">
-      <img src="/public/pennywise.gif">
+      <img src="/pennywise.gif">
       <h2 class="text-2xl font-bold mb-4">Beheerder Login</h2>
 
       <form @submit.prevent="handleLogin">
@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue';
+import { ref } from 'vue';
 import useAuth from '@/composables/useAuth'; // Importeer je centrale auth logica
 import { useToast } from 'vue-toastification';
 

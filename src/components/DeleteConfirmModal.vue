@@ -1,6 +1,4 @@
 <script setup>
-import {  defineEmits } from 'vue'
-
 const { isVisible, boekTitel, boekAuteur } = defineProps({
   isVisible: {
     type: Boolean,

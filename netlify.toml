@@ -1,10 +1,7 @@
 [build]
-  # Netlify instructies voor het build proces.
-  # Je kunt hier ook je standaard build commando en publish directory definieren als dat nog niet is gebeurd
-  # publish = "dist" 
-  # command = "npm run build"
+  publish = "dist"
+  command = "npm run build"
 
 [build.environment]
-  # CRUCIAAL: Vertel Netlify welke environment variables het mag negeren tijdens de secrets scan.
-  # We sluiten de openbare Supabase sleutel uit.
+  NODE_VERSION = "20"
   SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY"

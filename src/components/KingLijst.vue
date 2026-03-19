@@ -14,25 +14,6 @@ const toast = useToast()
 
 const boeken = ref([]) // Houdt de opgehaalde data vast
 
-/* //^ Oude ophaal functie voor Supabase
-
-// async function fetchBoeken() {
-//   // Gebruik .from() om je tabel te selecteren
-//   // Gebruik .select() om de gewenste kolommen op te halen
-//   const { data, error } = await supabase
-//     .from('boeken') // <-- Gebruik hier de naam van je tabel
-//     .select('*') // Haal alle kolommen op
-//     .order('titel', { ascending: true }) // Sorteer optioneel
-
-//   if (error) {
-//     console.error('Fout bij het ophalen van boeken:', error)
-//   } else {
-//     boeken.value = data
-//     // Nu kun je je filtering/sortering (filteredAndSortedBooks) hierop baseren
-//   }
-// }
-*/
-
 // * Nieuwe ophaal functie voor pocketbase
 async function fetchBoeken() {
   try {
@@ -194,7 +175,7 @@ async function executeDelete() {
 
 <template>
   <div class="boekenlijst-container bg-(#fffce9)">
-    
+
     <div class="boekenlijst-titel-container">
       <div class="boekenlijst--titel">Boekenlijst</div>
       <div class="aantal-boeken pr-7">Aantal boeken: {{ aantal }}</div>

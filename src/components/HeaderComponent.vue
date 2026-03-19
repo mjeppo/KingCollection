@@ -32,7 +32,7 @@ const navigateToAddBook = () => {
 
 <template>
   <header class="titel-container flex flex-col items-center bg-[#fffce9] text-white">
-    <img src="/public/pennywise_bg2.png" class=" penny-wise-header">
+    <img src="/pennywise_bg2.png" class=" penny-wise-header">
 
     <nav class="my-3">
       <router-link to="/" class="nav-btn" active-class="active">

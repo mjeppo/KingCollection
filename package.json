@@ -15,7 +15,6 @@
     "tailwind-init": "tailwindcss init"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.86.0",
     "bootstrap": "^5.3.8",
     "pocketbase": "^0.26.5",
     "vue": "^3.5.22",
